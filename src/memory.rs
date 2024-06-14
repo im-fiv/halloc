@@ -177,8 +177,9 @@ impl Memory {
 		
 		let ptr = heap.alloc(layout).cast::<T>();
 		unsafe {
-			// This seems to cause an access violation error in some cases
-			// So no running custom destructors for now!
+			// This seems to cause an access violation error in some cases,
+			// so no running custom destructors for now!
+			
 			// drop_in_place(ptr.as_ptr());
 			write(ptr.as_ptr(), value);
 		}
