@@ -1,20 +1,13 @@
 mod memory;
-pub use memory::{Memory, Allocatable};
-
-impl Allocatable for i32 {}
-impl Allocatable for i64 {}
+use memory::{Allocatable, Memory};
 
 fn main() {
 	let memory = Memory::new();
+	let mut mutators = vec![];
 
-	memory.alloc(1i64);
-	let _a = memory.alloc(69i32);
-	let _b = memory.alloc(i64::MAX - 1);
-	let _c = memory.alloc(i64::MAX - 2);
-	let _d = memory.alloc(i64::MAX - 3);
-	let _e = memory.alloc(i64::MAX - 4);
-	let _f = memory.alloc(i64::MAX - 5);
-	let _g = memory.alloc(i64::MAX - 6);
+	for i in 0..100 {
+		mutators.push(memory.alloc(String::from("hello").repeat(i)));
+	}
 
-	dbg!(memory.bytes());
+	dbg!(memory.bytes().len());
 }

@@ -1,9 +1,26 @@
 use std::alloc::{Layout, alloc, dealloc, handle_alloc_error};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex, MutexGuard};
 use std::ptr::{NonNull, write};
 
 /// The default initial heap size (in bytes)
 const DEFAULT_HEAP_INIT_SIZE: usize = 8;
+
+pub trait Allocatable: Sized + 'static {}
+
+macro_rules! impl_alloc {
+	($trait:ty => [$($type:ty),*]) => {
+		$( impl_alloc!($trait => $type); )*
+	};
+
+	($trait:ty => $type:ty) => {
+		impl $trait for $type {}
+	};
+}
+
+impl_alloc!(Allocatable => [i8, i16, i32, i64, i128]);
+impl_alloc!(Allocatable => [u8, u16, u32, u64, u128]);
+impl_alloc!(Allocatable => [f32, f64]);
+impl_alloc!(Allocatable => String);
 
 #[derive(Debug)]
 pub struct Heap {
@@ -35,14 +52,8 @@ impl Heap {
 		self.ptrs.retain(|(p, _)| *p != ptr);
 	}
 
-	pub fn bytes(&self) -> Arc<[u8]> {
-		let total_size = self
-			.ptrs
-			.iter()
-			.map(|(_, layout)| layout.size())
-			.sum::<usize>();
-
-		let mut bytes = Vec::with_capacity(total_size);
+	pub fn bytes(&self) -> Vec<u8> {
+		let mut bytes = Vec::with_capacity(self.size());
 
 		for (ptr, layout) in &self.ptrs {
 			let data_slice = unsafe {
@@ -52,7 +63,15 @@ impl Heap {
 			bytes.extend_from_slice(data_slice);
 		}
 
-		bytes.into()
+		bytes
+	}
+
+	pub fn size(&self) -> usize {
+		self
+			.ptrs
+			.iter()
+			.map(|(_, layout)| layout.size())
+			.sum::<usize>()
 	}
 }
 
@@ -100,9 +119,6 @@ impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
 	}
 }
 
-// TODO: remove `std::fmt::Debug`
-pub trait Allocatable: Sized + 'static + std::fmt::Debug {}
-
 #[derive(Debug)]
 pub struct Memory {
 	heap: Mutex<Heap>
@@ -118,10 +134,14 @@ impl Memory {
 			heap: Mutex::new(Heap::new(initial_size))
 		}
 	}
+
+	fn get_heap(&self) -> MutexGuard<Heap> {
+		self.heap.lock().expect("Heap lock failed")
+	}
 	
 	pub fn alloc<T: Allocatable>(&self, value: T) -> HeapMutator<T> {
 		let layout = Layout::new::<T>();
-		let mut heap = self.heap.lock().expect("Heap lock failed");
+		let mut heap = self.get_heap();
 		
 		let ptr = heap.alloc(layout).cast::<T>();
 		unsafe {
@@ -142,8 +162,38 @@ impl Memory {
 		mutator.dealloc();
 	}
 
-	pub fn bytes(&self) -> Arc<[u8]> {
-		let heap = self.heap.lock().expect("Heap lock failed");
-		heap.bytes()
+	/// Gets all of the bytes of the heap.
+	/// If you only need the byte count, use [`size`] instead
+	/// 
+	/// # Example
+	/// ```
+	/// # use heap_alloc::Memory;
+	/// let memory = Memory::with_size(4); // The size of `i32` is 4 bytes
+	/// let _mutator = memory.alloc(42);
+	/// let bytes = memory.bytes();
+	/// 
+	/// assert!(
+	/// 	bytes == vec![42, 0, 0, 0] ||
+	/// 	bytes == vec![0, 0, 0, 42]
+	/// );
+	/// ```
+	/// 
+	/// [`size`]: Memory::size
+	pub fn bytes(&self) -> Vec<u8> {
+		self.get_heap().bytes()
+	}
+
+	/// Gets the byte count of the heap.
+	/// 
+	/// # Example
+	/// ```
+	/// # use heap_alloc::Memory;
+	/// let memory = Memory::with_size(0);
+	/// let _mutator = memory.alloc(42); // The size of `i32` is 4 bytes
+	/// 
+	/// assert_eq!(memory.size(), 4);
+	/// ```
+	pub fn size(&self) -> usize {
+		self.get_heap().size()
 	}
 }
