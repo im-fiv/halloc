@@ -30,7 +30,7 @@ impl Memory {
 	
 	/// Allocates memory for the provided value and returns a [`HeapMutator`] for that address.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Memory;
@@ -61,7 +61,7 @@ impl Memory {
 	/// It is important to note that [`HeapMutator`] implements [`Drop`], so the underlying data
 	/// will be dropped along with the mutator when it goes out of scope.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Memory;
@@ -81,7 +81,7 @@ impl Memory {
 	/// 
 	/// Note that if you only need the count of contained bytes, you should use [`size`](Memory::size) instead.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Memory;
@@ -100,7 +100,7 @@ impl Memory {
 
 	/// Gets the byte count of the underlying heap.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Memory;
