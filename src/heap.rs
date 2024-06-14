@@ -282,6 +282,9 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// There are no safety guarantees provided by this function.
 	pub unsafe fn cast_unchecked<U: Allocatable>(self) -> HeapMutator<'heap, U> {
 		use std::mem::ManuallyDrop;
+
+		// Due to the way `HeapMutator` is structured, the pointer will still be dropped
+		// once `drop` is called on the *new* mutator
 		let kept_self = ManuallyDrop::new(self);
 
 		HeapMutator {
