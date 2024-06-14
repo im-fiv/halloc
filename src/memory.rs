@@ -102,13 +102,6 @@ impl Heap {
 	}
 }
 
-impl Drop for Heap {
-	fn drop(&mut self) {
-		self.bytes.clear();
-		self.next_free = 0;
-	}
-}
-
 #[derive(Debug)]
 pub struct HeapMutator<'heap, T: Allocatable> {
 	ptr: NonNull<T>,
@@ -179,7 +172,7 @@ impl Memory {
 		unsafe {
 			// This seems to cause an access violation error in some cases,
 			// so no running custom destructors for now!
-			
+
 			// drop_in_place(ptr.as_ptr());
 			write(ptr.as_ptr(), value);
 		}
