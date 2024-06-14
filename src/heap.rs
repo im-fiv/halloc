@@ -1,5 +1,5 @@
 use std::alloc::{Layout, alloc, dealloc, handle_alloc_error};
-use std::ptr::{NonNull, write};
+use std::ptr::{NonNull, read, write};
 use std::sync::Mutex;
 
 use crate::Allocatable;
@@ -23,7 +23,8 @@ impl Heap {
 	/// 
 	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
 	/// 
-	/// # Example
+	/// # Examples
+	/// 
 	/// ```
 	/// # use heap_alloc::Heap;
 	/// # use std::alloc::Layout;
@@ -62,7 +63,7 @@ impl Heap {
 	/// 
 	/// It is important to note that after the memory for a provided pointer has been deallocated, it is **no longer safe to use**.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```should_panic
 	/// # use heap_alloc::Heap;
@@ -90,7 +91,7 @@ impl Heap {
 	/// 
 	/// Note that if you only need the count of contained bytes, you should use [`size`](Heap::size) instead.
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Heap;
@@ -126,7 +127,7 @@ impl Heap {
 
 	/// Returns the count of bytes contained within the [`Heap`].
 	/// 
-	/// # Example
+	/// # Examples
 	/// 
 	/// ```
 	/// # use heap_alloc::Heap;
@@ -157,19 +158,19 @@ pub struct HeapMutator<'heap, T: Allocatable> {
 }
 
 impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
-	/// Gets an immutable reference to data that the mutator is pointing to.
+	/// Gets an immutable reference to the value that the mutator is pointing to.
 	pub fn get(&self) -> &T {
 		unsafe { self.ptr.as_ref() }
 	}
 
-	/// Gets a mutable reference to data that the mutator is pointing to.
+	/// Gets a mutable reference to the value that the mutator is pointing to.
 	pub fn get_mut(&mut self) -> &mut T {
 		unsafe { self.ptr.as_mut() }
 	}
 
-	/// Gets a cloned value of the data that the mutator is pointing to.
+	/// Clones the value that the mutator is pointing to.
 	/// 
-	/// This requires the implementation of [`ToOwned`] for the type of the data that the mutator is holding.
+	/// This requires the implementation of [`ToOwned`] for the type of the value that the mutator is holding.
 	pub fn get_owned(&self) -> T where T: ToOwned<Owned = T> {
 		self.get().to_owned()
 	}
@@ -179,7 +180,117 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		unsafe { write(self.ptr.as_ptr(), value) }
 	}
 
-	/// Deallocates the mutator along with the contained data, calling [`Drop`] on the data.
+	/// Casts the mutator **and** the underlying value to the provided type (`U`), reallocating it, and calling the destructor of the previous value.
+	/// 
+	/// This is **inherently unsafe** and cannot guarantee stability or correct alignment.
+	/// 
+	/// Unlike [`cast_unchecked`](HeapMutator::cast_unchecked), the bytes of the previous value that don't fit into `U` are not carried over.
+	/// 
+	/// # Examples
+	/// 
+	/// This is a safe cast:
+	/// 
+	/// ```
+	/// # use heap_alloc::{Allocatable, Memory, HeapMutator};
+	/// struct A {
+	///     data: bool,
+	///     something: i32
+	/// }
+	/// 
+	/// struct B {
+	///     same_data: bool,
+	///     other_something: i32
+	/// }
+	/// 
+	/// impl Allocatable for A {}
+	/// impl Allocatable for B {}
+	/// 
+	/// // Both of the structs have the size of 5 bytes:
+	/// //     - bool (1 byte)
+	/// //     - i32 (4 bytes)
+	/// // However, due to the alignment and padding, the actual size for both of them is 8 bytes
+	/// let memory = Memory::with_size(8);
+	/// 
+	/// let a = A {
+	///     data: true,
+	///     something: 42
+	/// };
+	/// 
+	/// let mutator_a: HeapMutator<A> = memory.alloc(a);
+	/// let mutator_b: HeapMutator<B> = unsafe { mutator_a.cast::<B>() };
+	/// 
+	/// let b = mutator_b.get();
+	/// 
+	/// // We make sure that the previous value has been deallocated...
+	/// assert_eq!(memory.size(), 8);
+	/// // ...and then compare the data
+	/// assert_eq!(b.same_data, true);
+	/// assert_eq!(b.other_something, 42);
+	/// ```
+	/// 
+	/// # Safety
+	/// This type of casting is generally safe when casting between types of identical structure. Otherwise, it is highly discouraged.
+	pub unsafe fn cast<U: Allocatable>(self) -> HeapMutator<'heap, U> {
+		let mut heap = self.heap.lock().expect("Heap lock failed");
+
+		// Getting layouts for both `T` and `U`
+		let layout_t = Layout::new::<T>();
+		let layout_u = Layout::new::<U>();
+
+		// Deciding the largest layout for the new mutator
+		let new_layout_size = std::cmp::max(layout_t.size(), layout_u.size());
+		let new_layout = Layout::from_size_align(new_layout_size, layout_u.align()).expect("Layout creation failed");
+
+		// Allocating a new pointer and casting it to `U`
+		let new_ptr = heap.alloc(new_layout).cast::<U>();
+
+		// Heap lock is no longer needed, dropping it to prevent deadlocks during deallocation,
+		// since the `Drop` implementation of `HeapMutator` also requires a heap lock
+		drop(heap);
+
+		// Taking the heap reference
+		let heap_ref = self.heap;
+
+		unsafe {
+			// Reading the value of the current pointer and casting it to `U`
+			let old_ptr_val = read(self.ptr.as_ptr().cast::<U>());
+
+			// Writing the old value to the new pointer
+			write(new_ptr.as_ptr(), old_ptr_val);
+
+			// Deallocating the old pointer
+			self.dealloc();
+		}
+
+		HeapMutator {
+			ptr: new_ptr,
+			heap: heap_ref
+		}
+	}
+
+	/// An alternative to [`cast`](HeapMutator::cast) that **ignores all bare-minimum safety precautions**.
+	/// This should only be used as a last resort.
+	/// 
+	/// If you need at least any guarantees of the cast being successful, use [`cast`](HeapMutator::cast) instead.
+	/// 
+	/// ### [`cast_unchecked`](HeapMutator::cast_unchecked) simply casts the underlying value to `U`, which means:
+	/// - the alignment of `U` is completely ignored and the initial one is kept
+	/// - the bytes that don't fit into `U` are not deinitialized
+	/// - the validity invariants of `U` are not checked
+	/// 
+	/// # Safety
+	/// There are no safety guarantees provided by this function.
+	pub unsafe fn cast_unchecked<U: Allocatable>(self) -> HeapMutator<'heap, U> {
+		use std::mem::ManuallyDrop;
+		let kept_self = ManuallyDrop::new(self);
+
+		HeapMutator {
+			ptr: kept_self.ptr.cast::<U>(),
+			heap: kept_self.heap
+		}
+	}
+
+	/// Deallocates the mutator along with the contained value, calling [`drop`] on the value.
 	/// 
 	/// This function is an alias for the [`Drop`] implementation of [`HeapMutator`]
 	pub fn dealloc(self) {
