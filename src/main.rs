@@ -16,5 +16,5 @@ fn main() {
 	let _f = memory.alloc(i64::MAX - 5);
 	let _g = memory.alloc(i64::MAX - 6);
 
-	// dbg!(&memory);
+	dbg!(memory.bytes());
 }
