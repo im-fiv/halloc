@@ -5,7 +5,7 @@ pub use heap::{Heap, HeapMutator};
 pub use memory::Memory;
 
 /// The default initial heap size (in bytes)
-const DEFAULT_HEAP_INIT_SIZE: usize = 8;
+const DEFAULT_HEAP_INIT_SIZE: usize = 1024;
 
 /// Represents any value that can be allocated onto the [`Heap`]
 pub trait Allocatable: Sized + 'static {}
