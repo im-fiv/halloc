@@ -26,7 +26,7 @@ impl Heap {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Heap;
+	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
 	/// let layout = Layout::new::<bool>();
@@ -66,7 +66,7 @@ impl Heap {
 	/// # Examples
 	/// 
 	/// ```should_panic
-	/// # use heap_alloc::Heap;
+	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
 	/// # use std::panic::catch_unwind;
@@ -94,7 +94,7 @@ impl Heap {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Heap;
+	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
 	/// let layout = Layout::new::<i32>();
@@ -130,7 +130,7 @@ impl Heap {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Heap;
+	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// let layout = Layout::new::<i32>();
 	/// let mut heap = Heap::new(layout.size() * 10); // Create a heap with enough space for 10 `i32`s (40 bytes)
@@ -191,7 +191,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// This is a safe cast:
 	/// 
 	/// ```
-	/// # use heap_alloc::{Allocatable, Memory, HeapMutator};
+	/// # use halloc::{Allocatable, Memory, HeapMutator};
 	/// struct A {
 	///     data: bool,
 	///     something: i32

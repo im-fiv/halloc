@@ -1,5 +1,5 @@
 [package]
-name = "heap-alloc"
+name = "halloc"
 version = "0.7.0"
 authors = ["фыв"]
 edition = "2021"

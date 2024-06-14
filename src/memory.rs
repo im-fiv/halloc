@@ -33,7 +33,7 @@ impl Memory {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Memory;
+	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 `bool` (1 byte)
 	/// let mut mutator = memory.alloc(true);
 	/// 
@@ -64,7 +64,7 @@ impl Memory {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Memory;
+	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 `bool` (1 byte)
 	/// let mutator = memory.alloc(true);
 	/// 
@@ -84,7 +84,7 @@ impl Memory {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Memory;
+	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(4); // Create memory with enough space for 1 `i32` (4 bytes)
 	/// let _mutator = memory.alloc(42);
 	/// 
@@ -103,7 +103,7 @@ impl Memory {
 	/// # Examples
 	/// 
 	/// ```
-	/// # use heap_alloc::Memory;
+	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(0); // Create memory with enough space for 1 `i32` (4 bytes)
 	/// let _mutator = memory.alloc(42);
 	/// 
