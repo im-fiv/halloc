@@ -1,6 +1,11 @@
 [package]
 name = "heap-alloc"
-version = "0.5.0"
+version = "0.7.0"
+authors = ["фыв"]
 edition = "2021"
+description = "A custom heap allocator made for use in personal projects"
+readme = "README.md"
+keywords = ["heap", "allocator", "custom-allocator", "memory", "memory-management"]
+publish = false
 
 [dependencies]
