@@ -208,7 +208,7 @@ pub struct HeapMutator<'heap, T: Allocatable> {
 	/// Reference to the heap
 	pub(crate) heap: &'heap Mutex<Heap>,
 
-	/// Indicates whether `drop` should be called to deallocate the memory
+	/// Indicates whether the memory that the mutator is holding should be deallocated
 	pub(crate) deallocated: bool
 }
 
