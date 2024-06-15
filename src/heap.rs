@@ -26,7 +26,7 @@ impl Heap {
 	/// 
 	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
 	/// 
-	/// **Note:** the allocated memory is **not zero-initialized**. For that, use [`Heap::alloc_zeroed`]
+	/// **Note:** the allocated memory is **not zero-initialized**. For that, use [`Heap::alloc_zeroed`].
 	/// 
 	/// # Examples
 	/// 
@@ -70,6 +70,8 @@ impl Heap {
 	/// Allocates memory for a given [`Layout`].
 	/// 
 	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
+	/// 
+	/// Unlike [`Heap::alloc`], the allocated memory is guaranteed to be zero-initialized.
 	/// 
 	/// # Examples
 	/// 
