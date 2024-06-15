@@ -202,10 +202,10 @@ impl Heap {
 #[derive(Debug)]
 /// A wrapper around a [`NonNull`] pointer to allow safe interaction with [`Heap`] and [`Memory`].
 pub struct HeapMutator<'heap, T: Allocatable> {
-	// Pointer to the allocated memory on the heap
+	/// Pointer to the allocated memory on the heap
 	pub(crate) ptr: NonNull<T>,
 
-	// Reference to the heap
+	/// Reference to the heap
 	pub(crate) heap: &'heap Mutex<Heap>
 }
 
