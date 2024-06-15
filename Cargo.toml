@@ -1,6 +1,6 @@
 [package]
 name = "halloc"
-version = "0.7.0"
+version = "0.7.5"
 authors = ["фыв"]
 edition = "2021"
 description = "A custom heap allocator made for use in personal projects"

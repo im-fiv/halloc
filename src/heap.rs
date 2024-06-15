@@ -1,6 +1,6 @@
 use std::alloc::{Layout, alloc, dealloc, handle_alloc_error};
 use std::ptr::{NonNull, read, write};
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
 use crate::Allocatable;
 
@@ -203,21 +203,25 @@ impl Heap {
 /// A wrapper around a [`NonNull`] pointer to allow safe interaction with [`Heap`] and [`Memory`].
 pub struct HeapMutator<'heap, T: Allocatable> {
 	/// Pointer to the allocated memory on the heap
-	pub(crate) ptr: NonNull<T>,
+	pub(crate) ptr: Arc<NonNull<T>>,
 
 	/// Reference to the heap
-	pub(crate) heap: &'heap Mutex<Heap>
+	pub(crate) heap: &'heap Mutex<Heap>,
+
+	/// Indicates whether `drop` should be called to deallocate the memory
+	pub(crate) deallocated: bool
 }
 
 impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// Gets an immutable reference to the value that the mutator is pointing to.
 	pub fn get(&self) -> &T {
-		unsafe { self.ptr.as_ref() }
+		unsafe { (*self.ptr).as_ref() }
 	}
 
 	/// Gets a mutable reference to the value that the mutator is pointing to.
 	pub fn get_mut(&mut self) -> &mut T {
-		unsafe { self.ptr.as_mut() }
+		let ptr_ref = Arc::get_mut(&mut self.ptr).expect("Mutable reference get failed");
+		unsafe { ptr_ref.as_mut() }
 	}
 
 	/// Clones the value that the mutator is pointing to.
@@ -315,8 +319,9 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		self.dealloc();
 
 		HeapMutator {
-			ptr: new_ptr,
-			heap: heap_ref
+			ptr: Arc::new(new_ptr),
+			heap: heap_ref,
+			deallocated: false
 		}
 	}
 
@@ -326,41 +331,121 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// If you need at least any guarantees of the cast being successful, use [`cast`](HeapMutator::cast) instead.
 	/// 
 	/// ### [`cast_unchecked`](HeapMutator::cast_unchecked) simply casts the underlying value to `U`, which means:
+	/// - the destructor of `T` is not called
 	/// - the alignment of `U` is completely ignored and the initial one is kept
 	/// - the bytes that don't fit into `U` are not deinitialized
 	/// - the validity invariants of `U` are not checked
 	/// 
 	/// # Safety
 	/// There are no safety guarantees provided by this function.
-	pub unsafe fn cast_unchecked<U: Allocatable>(self) -> HeapMutator<'heap, U> {
-		use std::mem::ManuallyDrop;
+	pub unsafe fn cast_unchecked<U: Allocatable>(mut self) -> HeapMutator<'heap, U> {
+		let ptr = Arc::new((*self.ptr).cast::<U>());
+		let heap = self.heap;
 
-		// Due to the way `HeapMutator` is structured, the pointer will still be dropped
-		// once `drop` is called on the *new* mutator
-		let kept_self = ManuallyDrop::new(self);
+		// This should be used to indicate if the memory for that address was already deallocated,
+		// but in this context we are passing that responsibility to the new mutator.
+		// This will deallocate the old mutator at the end of the function, **but not its value**
+		self.deallocated = true;
 
 		HeapMutator {
-			ptr: kept_self.ptr.cast::<U>(),
-			heap: kept_self.heap
+			ptr,
+			heap,
+			deallocated: false
 		}
+	}
+
+	/// Shows whether the mutator can be deallocated.
+	/// 
+	/// This depends on whether any of the mutator's clones are still in scope (i.e. referencing the same memory location).
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::Memory;
+	/// # use std::mem::drop;
+	/// let memory = Memory::with_size(1);
+	/// 
+	/// let m1 = memory.alloc(true);
+	/// let m2 = m1.clone();
+	/// 
+	/// assert_eq!(m1.can_dealloc(), false);
+	/// 
+	/// drop(m2);
+	/// 
+	/// assert_eq!(m1.can_dealloc(), true);
+	/// assert_eq!(m1.dealloc(), true);
+	/// ```
+	pub fn can_dealloc(&self) -> bool {
+		// The reason for that `< 2` is because the original mutator counts as 1 reference
+		self.ref_count() < 2
+	}
+
+	/// Gets the count of references to this mutator's memory location
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::Memory;
+	/// # use std::mem::drop;
+	/// let memory = Memory::with_size(1);
+	/// 
+	/// let m1 = memory.alloc(true);
+	/// let m2 = m1.clone();
+	/// 
+	/// assert_eq!(m1.ref_count(), 2);
+	/// assert_eq!(m2.ref_count(), 2);
+	/// 
+	/// drop(m2);
+	/// 
+	/// assert_eq!(m1.ref_count(), 1);
+	/// ```
+	pub fn ref_count(&self) -> usize {
+		Arc::strong_count(&self.ptr)
 	}
 
 	/// Deallocates the mutator along with the contained value, calling [`drop`] on the value.
 	/// 
-	/// This function is an alias for the [`Drop`] implementation of [`HeapMutator`]
-	pub fn dealloc(self) {
-		drop(self)
+	/// This function is called in the [`Drop`] implementation of [`HeapMutator`].
+	/// 
+	/// The result of this function indicates whether the deallocation was successful.
+	/// 
+	/// It will fail in one of these scenarios:
+	/// - the heap lock was unable to be acquired
+	/// - there are existing references to the value (in the form of other [`HeapMutator`]s)
+	/// - the mutator has already been marked as dropped
+	pub fn dealloc(mut self) -> bool {
+		self.dealloc_internal()
 	}
-}
 
-impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
-	fn drop(&mut self) {
+	/// Deallocates the mutator along with the contained value but **does not** consume the mutator.
+	/// 
+	/// It is only to be used internally, when it is guaranteed that the mutator will be dropped after that.
+	/// 
+	/// The result of this function indicates whether the deallocation was successful.
+	/// 
+	/// It will fail in one of these scenarios:
+	/// - the mutator has already been marked as dropped
+	/// - the heap lock was unable to be acquired
+	/// - there are existing references to the value (in the form of other [`HeapMutator`]s)
+	fn dealloc_internal(&mut self) -> bool {
+		// If the stored memory location was already deallocated, we don't need to do anything
+		// except letting Rust deallocate the mutator itself
+		if self.deallocated {
+			return false;
+		}
+
+		// If there are any more references to this memory location, don't deallocate it
+		// This can happen if the mutator has been cloned (or is a clone of the original mutator)
+		if !self.can_dealloc() {
+			return false;
+		}
+
 		// Safely attempting to get the heap lock
 		let mut heap = match self.heap.lock() {
 			Ok(lock) => lock,
 			Err(_) => {
 				eprintln!("Heap lock failed");
-				return;
+				return false;
 			}
 		};
 
@@ -372,5 +457,26 @@ impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
 
 		// Deallocating the memory
 		heap.dealloc(self.ptr.cast::<u8>(), layout);
+
+		// Marking as deallocated
+		self.deallocated = true;
+
+		true
+	}
+}
+
+impl<'heap, T: Allocatable> Clone for HeapMutator<'heap, T> {
+	fn clone(&self) -> Self {
+		Self {
+			ptr: Arc::clone(&self.ptr),
+			heap: self.heap,
+			deallocated: false
+		}
+	}
+}
+
+impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
+	fn drop(&mut self) {
+		self.dealloc_internal();
 	}
 }

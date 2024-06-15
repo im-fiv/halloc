@@ -1,4 +1,4 @@
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, Arc};
 use std::alloc::Layout;
 use std::ptr::write;
 
@@ -57,8 +57,9 @@ impl Memory {
 		unsafe { write(ptr.as_ptr(), value) }
 		
 		HeapMutator {
-			ptr,
-			heap: &self.heap
+			ptr: Arc::new(ptr),
+			heap: &self.heap,
+			deallocated: false
 		}
 	}
 
