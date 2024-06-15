@@ -7,7 +7,10 @@ use crate::Allocatable;
 #[derive(Debug)]
 /// A memory management struct that allows for allocation and deallocation of raw pointers.
 /// It is best to use [`Memory`] to operate on values.
+/// 
+/// See methods on [`Heap`] for documentation.
 pub struct Heap {
+	/// Vector of currently allocated pointers with their corresponding layouts
 	pub(crate) ptrs: Vec<(NonNull<u8>, Layout)>
 }
 
@@ -23,6 +26,8 @@ impl Heap {
 	/// 
 	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
 	/// 
+	/// **Note:** the allocated memory is **not zero-initialized**. For that, use [`Heap::alloc_zeroed`]
+	/// 
 	/// # Examples
 	/// 
 	/// ```
@@ -33,6 +38,7 @@ impl Heap {
 	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `bool` (1 byte)
 	/// 
 	/// let ptr: NonNull<u8> = heap.alloc(layout);
+	/// unsafe { ptr.as_ptr().write_bytes(0, layout.size()) } // Zero-initializing the memory first
 	/// 
 	/// // Cast the allocated pointer to the desired type
 	/// let as_bool_ptr: *mut bool = ptr.cast::<bool>().as_ptr();
@@ -44,19 +50,57 @@ impl Heap {
 	/// assert_eq!(unsafe { *as_bool_ptr }, true);
 	/// ```
 	pub fn alloc(&mut self, layout: Layout) -> NonNull<u8> {
+		// Allocating memory on the heap
 		let ptr = unsafe { alloc(layout) };
 
+		// Checking nullness
 		if ptr.is_null() {
 			handle_alloc_error(layout);
 		}
 
+		// Constructing a `NonNull` pointer from a raw one
 		let nn_ptr = unsafe { NonNull::new_unchecked(ptr) };
-		// It is important to zero-initialize the allocated memory first
-		unsafe { nn_ptr.as_ptr().write_bytes(0, layout.size()) }
 
+		// Saving that pointer
 		self.ptrs.push((nn_ptr, layout));
 
 		nn_ptr
+	}
+
+	/// Allocates memory for a given [`Layout`].
+	/// 
+	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::Heap;
+	/// # use std::alloc::Layout;
+	/// # use std::ptr::NonNull;
+	/// let layout = Layout::new::<bool>();
+	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `bool` (1 byte)
+	/// 
+	/// let ptr: NonNull<u8> = heap.alloc_zeroed(layout);
+	/// // The memory is already zero-initialized, so there's no need to overwrite it
+	/// // unsafe { ptr.as_ptr().write_bytes(0, layout.size()) }
+	/// 
+	/// // Cast the allocated pointer to the desired type
+	/// let as_bool_ptr: *mut bool = ptr.cast::<bool>().as_ptr();
+	/// 
+	/// // Memory is zero-initialized and has a value of `0`, which is `false`
+	/// assert_eq!(unsafe { *as_bool_ptr }, false);
+	/// 
+	/// unsafe { *as_bool_ptr = true }
+	/// assert_eq!(unsafe { *as_bool_ptr }, true);
+	/// ```
+	pub fn alloc_zeroed(&mut self, layout: Layout) -> NonNull<u8> {
+		// Allocating non-zeroed memory on the heap
+		let ptr = self.alloc(layout);
+
+		// Overwriting it with zeros
+		unsafe { ptr.as_ptr().write_bytes(0, layout.size()) }
+
+		ptr
 	}
 	
 	/// Deallocates memory for the provided pointer and [`Layout`].
@@ -112,13 +156,16 @@ impl Heap {
 	/// );
 	/// ```
 	pub fn bytes(&self) -> Vec<u8> {
+		// Creating the resulting bytes vector
 		let mut bytes = Vec::with_capacity(self.size());
 
 		for (ptr, layout) in &self.ptrs {
+			// Getting the pointer data
 			let data_slice = unsafe {
 				std::slice::from_raw_parts(ptr.as_ptr(), layout.size())
 			};
 
+			// Appending to the result
 			bytes.extend_from_slice(data_slice);
 		}
 
@@ -142,6 +189,7 @@ impl Heap {
 	/// assert_eq!(heap.size(), 40);
 	/// ```
 	pub fn size(&self) -> usize {
+		// Summating the layout sizes for all currently allocated pointers
 		self.ptrs
 			.iter()
 			.map(|(_, layout)| layout.size())
@@ -152,7 +200,10 @@ impl Heap {
 #[derive(Debug)]
 /// A wrapper around a [`NonNull`] pointer to allow safe interaction with [`Heap`] and [`Memory`].
 pub struct HeapMutator<'heap, T: Allocatable> {
+	// Pointer to the allocated memory on the heap
 	pub(crate) ptr: NonNull<T>,
+
+	// Reference to the heap
 	pub(crate) heap: &'heap Mutex<Heap>
 }
 
@@ -302,6 +353,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 
 impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
 	fn drop(&mut self) {
+		// Safely attempting to get the heap lock
 		let mut heap = match self.heap.lock() {
 			Ok(lock) => lock,
 			Err(_) => {
@@ -310,9 +362,13 @@ impl<'heap, T: Allocatable> Drop for HeapMutator<'heap, T> {
 			}
 		};
 
+		// Constructing a layout for `T`
 		let layout = Layout::new::<T>();
 
+		// Calling `drop` on the contained value
 		unsafe { self.ptr.as_ptr().drop_in_place() }
+
+		// Deallocating the memory
 		heap.dealloc(self.ptr.cast::<u8>(), layout);
 	}
 }

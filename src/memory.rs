@@ -7,6 +7,7 @@ use crate::{DEFAULT_HEAP_INIT_SIZE, Allocatable, Heap, HeapMutator};
 #[derive(Debug)]
 /// A struct containing a [`Mutex`] of the inner [`Heap`] that is used for direct value allocation.
 pub struct Memory {
+	// Heap that the current [`Memory`] owns
 	pub(crate) heap: Mutex<Heap>
 }
 
@@ -43,10 +44,16 @@ impl Memory {
 	/// assert_eq!(*mutator.get(), false);
 	/// ```
 	pub fn alloc<T: Allocatable>(&self, value: T) -> HeapMutator<T> {
+		// Creating a suitable layout for `T`
 		let layout = Layout::new::<T>();
+
+		// Acquiring a heap lock
 		let mut heap = self.get_heap();
 		
-		let ptr = heap.alloc(layout).cast::<T>();
+		// Allocating a pointer
+		let ptr = heap.alloc_zeroed(layout).cast::<T>();
+
+		// Writing the provided value to the allocated pointer
 		unsafe { write(ptr.as_ptr(), value) }
 		
 		HeapMutator {
