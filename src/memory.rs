@@ -1,4 +1,4 @@
-use std::sync::{Mutex, MutexGuard, Arc};
+use std::sync::{Mutex, MutexGuard};
 use std::alloc::Layout;
 use std::ptr::write;
 
@@ -35,7 +35,7 @@ impl Memory {
 	/// 
 	/// ```
 	/// # use halloc::Memory;
-	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 `bool` (1 byte)
+	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let mut mutator = memory.alloc(true);
 	/// 
 	/// assert_eq!(*mutator.get(), true); // `HeapMutator::get` returns a reference to the underlying data
@@ -53,18 +53,17 @@ impl Memory {
 		// Allocating a pointer
 		let ptr = heap.alloc_zeroed(layout).cast::<T>();
 
-		// Writing the provided value to the allocated pointer
-		unsafe { write(ptr.as_ptr(), value) }
-		
-		HeapMutator {
-			ptr: Arc::new(ptr),
-			heap: &self.heap,
-			deallocated: false
+		unsafe {
+			// Writing the provided value to the allocated pointer
+			write(ptr.as_ptr(), value);
+
+			// Creating the mutator
+			HeapMutator::new_unchecked(ptr, &self.heap)
 		}
 	}
 
 	/// Deallocates the provided [`HeapMutator`] and consuming it,
-	/// though the use of [`HeapMutator::dealloc`] is preferred over [`dealloc`](Memory::dealloc).
+	/// though the use of [`HeapMutator::dealloc`] is preferred over [`Memory::dealloc`].
 	/// 
 	/// It is important to note that [`HeapMutator`] implements [`Drop`], so the underlying data
 	/// will be dropped along with the mutator when it goes out of scope.
@@ -73,7 +72,7 @@ impl Memory {
 	/// 
 	/// ```
 	/// # use halloc::Memory;
-	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 `bool` (1 byte)
+	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let mutator = memory.alloc(true);
 	/// 
 	/// assert_eq!(memory.bytes(), vec![1]);
@@ -93,7 +92,7 @@ impl Memory {
 	/// 
 	/// ```
 	/// # use halloc::Memory;
-	/// let memory = Memory::with_size(4); // Create memory with enough space for 1 `i32` (4 bytes)
+	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let _mutator = memory.alloc(42);
 	/// 
 	/// let bytes = memory.bytes();
@@ -108,17 +107,41 @@ impl Memory {
 
 	/// Gets the byte count of the underlying heap.
 	/// 
+	/// Not to be confused with [`count`](Memory::count)
+	/// 
 	/// # Examples
 	/// 
 	/// ```
 	/// # use halloc::Memory;
-	/// let memory = Memory::with_size(0); // Create memory with enough space for 1 `i32` (4 bytes)
+	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let _mutator = memory.alloc(42);
 	/// 
 	/// assert_eq!(memory.size(), 4);
+	/// assert_eq!(memory.count(), 1);
 	/// ```
 	pub fn size(&self) -> usize {
 		self.get_heap().size()
+	}
+
+	/// Gets the pointer count of the underlying heap.
+	/// 
+	/// Not to be confused with [`size`](Memory::size)
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::Memory;
+	/// let memory = Memory::with_size(3); // Create memory with enough space for 3 pointers
+	/// 
+	/// let _m1 = memory.alloc(1);
+	/// let _m2 = memory.alloc(2);
+	/// let _m3 = memory.alloc(3);
+	/// 
+	/// assert_eq!(memory.count(), 3);
+	/// assert_eq!(memory.size(), 12); // 4 bytes for each `i32`
+	/// ```
+	pub fn count(&self) -> usize {
+		self.get_heap().count()
 	}
 }
 

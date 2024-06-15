@@ -15,7 +15,7 @@ pub struct Heap {
 }
 
 impl Heap {
-	/// Initializes the [`Heap`] with a provided initial size (in bytes).
+	/// Initializes the [`Heap`] with a provided initial size (count of pointers).
 	pub fn new(initial_size: usize) -> Self {
 		Self {
 			ptrs: Vec::with_capacity(initial_size)
@@ -24,9 +24,9 @@ impl Heap {
 	
 	/// Allocates memory for a given [`Layout`].
 	/// 
-	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
+	/// It is important to deallocate the memory after usage using [`dealloc`](Heap::dealloc). Use [`Memory`] for automatic deallocation.
 	/// 
-	/// **Note:** the allocated memory is **not zero-initialized**. For that, use [`Heap::alloc_zeroed`].
+	/// **Note:** the allocated memory is **not zero-initialized**. For that, use [`alloc_zeroed`](Heap::alloc_zeroed).
 	/// 
 	/// # Examples
 	/// 
@@ -34,13 +34,13 @@ impl Heap {
 	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
-	/// let layout = Layout::new::<bool>();
-	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `bool` (1 byte)
+	/// let mut heap = Heap::new(1);
 	/// 
+	/// let layout = Layout::new::<bool>();
 	/// let ptr: NonNull<u8> = heap.alloc(layout);
 	/// unsafe { ptr.as_ptr().write_bytes(0, layout.size()) } // Zero-initializing the memory first
 	/// 
-	/// // Cast the allocated pointer to the desired type
+	/// // Casting the allocated pointer to the desired type
 	/// let as_bool_ptr: *mut bool = ptr.cast::<bool>().as_ptr();
 	/// 
 	/// // Memory is zero-initialized and has a value of `0`, which is `false`
@@ -69,9 +69,9 @@ impl Heap {
 
 	/// Allocates memory for a given [`Layout`].
 	/// 
-	/// It is important to deallocate the memory after usage using [`Heap::dealloc`]. Use [`Memory`] for automatic deallocation.
+	/// It is important to deallocate the memory after usage using [`dealloc`](Heap::dealloc). Use [`Memory`] for automatic deallocation.
 	/// 
-	/// Unlike [`Heap::alloc`], the allocated memory is guaranteed to be zero-initialized.
+	/// Unlike [`alloc`](Heap::alloc), the allocated memory is guaranteed to be zero-initialized.
 	/// 
 	/// # Examples
 	/// 
@@ -79,9 +79,9 @@ impl Heap {
 	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
-	/// let layout = Layout::new::<bool>();
-	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `bool` (1 byte)
+	/// let mut heap = Heap::new(1);
 	/// 
+	/// let layout = Layout::new::<bool>();
 	/// let ptr: NonNull<u8> = heap.alloc_zeroed(layout);
 	/// // The memory is already zero-initialized, so there's no need to overwrite it
 	/// // unsafe { ptr.as_ptr().write_bytes(0, layout.size()) }
@@ -116,9 +116,9 @@ impl Heap {
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
 	/// # use std::panic::catch_unwind;
-	/// let layout = Layout::new::<u8>();
-	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `u8` (1 byte)
+	/// let mut heap = Heap::new(1);
 	/// 
+	/// let layout = Layout::new::<u8>();
 	/// let ptr: NonNull<u8> = heap.alloc(layout);
 	/// 
 	/// // Do some operations on the data...
@@ -143,13 +143,13 @@ impl Heap {
 	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
+	/// let mut heap = Heap::new(1);
+	/// 
 	/// let layout = Layout::new::<i32>();
-	/// let mut heap = Heap::new(layout.size()); // Create a heap with enough space for 1 `i32` (4 bytes)
-	/// 
 	/// let ptr: NonNull<u8> = heap.alloc(layout);
-	/// let casted_ptr = ptr.cast::<i32>().as_ptr();
+	/// let i32_ptr = ptr.cast::<i32>().as_ptr();
 	/// 
-	/// unsafe { *casted_ptr = 42 }
+	/// unsafe { *i32_ptr = 42 }
 	/// 
 	/// let bytes = heap.bytes();
 	/// assert!(
@@ -174,21 +174,23 @@ impl Heap {
 		bytes
 	}
 
-	/// Returns the count of bytes contained within the [`Heap`].
+	/// Returns the count of bytes contained within all the allocated pointers.
+	/// 
+	/// Not to be confused with [`count`](Heap::count), which returns the count of **pointers** allocated within the heap.
 	/// 
 	/// # Examples
 	/// 
 	/// ```
 	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
+	/// let mut heap = Heap::new(10); // Create a heap with enough space for 10 pointers
 	/// let layout = Layout::new::<i32>();
-	/// let mut heap = Heap::new(layout.size() * 10); // Create a heap with enough space for 10 `i32`s (40 bytes)
 	/// 
 	/// for _ in 0..10 {
 	///     heap.alloc(layout);
 	/// }
 	/// 
-	/// assert_eq!(heap.size(), 40);
+	/// assert_eq!(heap.size(), 40); // Each `i32` is 4 bytes
 	/// ```
 	pub fn size(&self) -> usize {
 		// Summating the layout sizes for all currently allocated pointers
@@ -196,6 +198,28 @@ impl Heap {
 			.iter()
 			.map(|(_, layout)| layout.size())
 			.sum::<usize>()
+	}
+
+	/// Returns the count of pointers contained within the [`Heap`].
+	/// 
+	/// Not to be confused with [`size`](Heap::size), which returns the count of **bytes** contained within all the allocated pointers.
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::Heap;
+	/// # use std::alloc::Layout;
+	/// let mut heap = Heap::new(3); // Create a heap with enough space for 3 pointers
+	/// let layout = Layout::new::<i32>();
+	/// 
+	/// let _ptr1 = heap.alloc(layout);
+	/// let _ptr2 = heap.alloc(layout);
+	/// let _ptr3 = heap.alloc(layout);
+	/// 
+	/// assert_eq!(heap.count(), 3);
+	/// ```
+	pub fn count(&self) -> usize {
+		self.ptrs.len()
 	}
 }
 
@@ -213,6 +237,18 @@ pub struct HeapMutator<'heap, T: Allocatable> {
 }
 
 impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
+	/// Instantiates a new mutator without checking the pointer for validity.
+	/// 
+	/// # Safety
+	/// This function is **only** safe if the caller first makes sure that the pointer is valid (non-null, writeable, correct alignment and size, etc.)
+	pub unsafe fn new_unchecked(ptr: NonNull<T>, heap: &'heap Mutex<Heap>) -> Self {
+		Self {
+			ptr: Arc::new(ptr),
+			heap,
+			deallocated: false
+		}
+	}
+
 	/// Gets an immutable reference to the value that the mutator is pointing to.
 	pub fn get(&self) -> &T {
 		unsafe { (*self.ptr).as_ref() }
@@ -261,11 +297,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// impl Allocatable for A {}
 	/// impl Allocatable for B {}
 	/// 
-	/// // Both of the structs have the size of 5 bytes:
-	/// //     - bool (1 byte)
-	/// //     - i32 (4 bytes)
-	/// // However, due to the alignment and padding, the actual size for both of them is 8 bytes
-	/// let memory = Memory::with_size(8);
+	/// let memory = Memory::with_size(1);
 	/// 
 	/// let a = A {
 	///     data: true,
@@ -276,6 +308,11 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// let mutator_b: HeapMutator<B> = unsafe { mutator_a.cast::<B>() };
 	/// 
 	/// let b = mutator_b.get();
+	/// 
+	/// // Both of the structs have the size of 5 bytes:
+	/// //     - bool (1 byte)
+	/// //     - i32 (4 bytes)
+	/// // However, due to the alignment and padding, the actual size for both of them is 8 bytes
 	/// 
 	/// // We make sure that the previous value has been deallocated...
 	/// assert_eq!(memory.size(), 8);
@@ -318,11 +355,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		// Deallocating the old pointer
 		self.dealloc();
 
-		HeapMutator {
-			ptr: Arc::new(new_ptr),
-			heap: heap_ref,
-			deallocated: false
-		}
+		unsafe { HeapMutator::new_unchecked(new_ptr, heap_ref) }
 	}
 
 	/// An alternative to [`cast`](HeapMutator::cast) that **ignores all bare-minimum safety precautions**.
@@ -339,18 +372,16 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// # Safety
 	/// There are no safety guarantees provided by this function.
 	pub unsafe fn cast_unchecked<U: Allocatable>(mut self) -> HeapMutator<'heap, U> {
-		let ptr = Arc::new((*self.ptr).cast::<U>());
-		let heap = self.heap;
-
 		// This should be used to indicate if the memory for that address was already deallocated,
 		// but in this context we are passing that responsibility to the new mutator.
 		// This will deallocate the old mutator at the end of the function, **but not its value**
 		self.deallocated = true;
 
-		HeapMutator {
-			ptr,
-			heap,
-			deallocated: false
+		unsafe {
+			HeapMutator::new_unchecked(
+				self.ptr.cast::<U>(),
+				self.heap
+			)
 		}
 	}
 
@@ -380,7 +411,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		self.ref_count() < 2
 	}
 
-	/// Gets the count of references to this mutator's memory location
+	/// Gets the count of references to this mutator's memory location.
 	/// 
 	/// # Examples
 	/// 
