@@ -387,7 +387,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 
 	/// Shows whether the mutator can be deallocated.
 	/// 
-	/// This depends on whether any of the mutator's clones are still in scope (i.e. referencing the same memory location).
+	/// This depends on whether any of the mutator's clones are still in scope, i.e., referencing the same memory location.
 	/// 
 	/// # Examples
 	/// 
@@ -441,7 +441,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// The result of this function indicates whether the deallocation was successful.
 	/// 
 	/// It will fail in one of these scenarios:
-	/// - the heap lock was unable to be acquired
+	/// - the heap lock could not be acquired
 	/// - there are existing references to the value (in the form of other [`HeapMutator`]s)
 	/// - the mutator has already been marked as dropped
 	pub fn dealloc(mut self) -> bool {
