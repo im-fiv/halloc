@@ -142,8 +142,7 @@ impl Heap {
 	/// assert_eq!(heap.size(), 40);
 	/// ```
 	pub fn size(&self) -> usize {
-		self
-			.ptrs
+		self.ptrs
 			.iter()
 			.map(|(_, layout)| layout.size())
 			.sum::<usize>()
@@ -257,10 +256,10 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 
 			// Writing the old value to the new pointer
 			write(new_ptr.as_ptr(), old_ptr_val);
-
-			// Deallocating the old pointer
-			self.dealloc();
 		}
+
+		// Deallocating the old pointer
+		self.dealloc();
 
 		HeapMutator {
 			ptr: new_ptr,
