@@ -24,24 +24,23 @@ halloc = { path = "path/to/halloc" }
 To get started with `halloc`, import it into your Rust project and create a new heap manager instance:
 
 ```rust
-use halloc::Memory;
+use halloc::{Memory, HeapMutator};
 
 fn main() {
     // Initialize a new heap
     let memory = Memory::new();
 
     // Allocate memory
-	let mut ptr = memory.alloc(vec![0u32; 256]);
+	// `HeapMutator` is a wrapper around the allocated memory to ensure safe interactions
+	let mut ptr: HeapMutator<Vec<u32>> = memory.alloc(vec![0u32; 256]);
 
     // Use the allocated memory (example with a u32 vector)
-    let as_ref = ptr.get_mut();
-
     for i in 0..256 {
-        as_ref[i] = i as u32;
+        ptr[i] = i as u32;
     }
 
-    assert_eq!(ptr.get().len(), 256);
-	assert_eq!(ptr.get().iter().sum::<u32>(), 32640);
+    assert_eq!(ptr.len(), 256);
+	assert_eq!(ptr.iter().sum::<u32>(), 32640);
 
     // Deallocate memory
     ptr.dealloc();
