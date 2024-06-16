@@ -1,5 +1,5 @@
-use std::alloc::{Layout, alloc, dealloc, handle_alloc_error};
-use std::ptr::{NonNull, read, write};
+use std::alloc::Layout;
+use std::ptr::NonNull;
 use std::sync::{Mutex, Arc};
 
 use crate::Allocatable;
@@ -51,11 +51,11 @@ impl Heap {
 	/// ```
 	pub fn alloc(&mut self, layout: Layout) -> NonNull<u8> {
 		// Allocating memory on the heap
-		let ptr = unsafe { alloc(layout) };
+		let ptr = unsafe { std::alloc::alloc(layout) };
 
 		// Checking nullness
 		if ptr.is_null() {
-			handle_alloc_error(layout);
+			std::alloc::handle_alloc_error(layout);
 		}
 
 		// Constructing a `NonNull` pointer from a raw one
@@ -129,7 +129,7 @@ impl Heap {
 	/// unsafe { *ptr.as_ptr() = 42 } // We no longer own this memory location, so accessing it is a big no-no!
 	/// ```
 	pub fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout) {
-		unsafe { dealloc(ptr.as_ptr(), layout) }
+		unsafe { std::alloc::dealloc(ptr.as_ptr(), layout) }
 		self.ptrs.retain(|(p, _)| *p != ptr);
 	}
 
@@ -269,7 +269,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 
 	/// Writes the target value to where the mutator is pointing to.
 	pub fn write(&mut self, value: T) {
-		unsafe { write(self.ptr.as_ptr(), value) }
+		unsafe { std::ptr::write(self.ptr.as_ptr(), value) }
 	}
 
 	/// Casts the mutator **and** the underlying value to the provided type (`U`), reallocating it, and calling the destructor of the previous value.
@@ -346,10 +346,10 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 
 		unsafe {
 			// Reading the value of the current pointer and casting it to `U`
-			let old_ptr_val = read(self.ptr.as_ptr().cast::<U>());
+			let old_ptr_val = std::ptr::read(self.ptr.as_ptr().cast::<U>());
 
 			// Writing the old value to the new pointer
-			write(new_ptr.as_ptr(), old_ptr_val);
+			std::ptr::write(new_ptr.as_ptr(), old_ptr_val);
 		}
 
 		// Deallocating the old pointer
@@ -493,6 +493,20 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		self.deallocated = true;
 
 		true
+	}
+}
+
+impl<'heap, T: Allocatable> std::ops::Deref for HeapMutator<'heap, T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		self.get()
+	}
+}
+
+impl<'heap, T: Allocatable> std::ops::DerefMut for HeapMutator<'heap, T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		self.get_mut()
 	}
 }
 
