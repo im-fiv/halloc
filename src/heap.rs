@@ -111,7 +111,7 @@ impl Heap {
 	/// 
 	/// # Examples
 	/// 
-	/// ```should_panic
+	/// ```
 	/// # use halloc::Heap;
 	/// # use std::alloc::Layout;
 	/// # use std::ptr::NonNull;
@@ -126,7 +126,7 @@ impl Heap {
 	/// 
 	/// heap.dealloc(ptr, layout);
 	/// 
-	/// unsafe { *ptr.as_ptr() = 42 } // We no longer own this memory location, so accessing it is a big no-no!
+	/// // unsafe { *ptr.as_ptr() = 42 } // We no longer own this memory location, so accessing it is a big no-no!
 	/// ```
 	pub fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout) {
 		unsafe { std::alloc::dealloc(ptr.as_ptr(), layout) }
