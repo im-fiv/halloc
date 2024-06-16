@@ -304,10 +304,8 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	///     something: 42
 	/// };
 	/// 
-	/// let mutator_a: HeapMutator<A> = memory.alloc(a);
-	/// let mutator_b: HeapMutator<B> = unsafe { mutator_a.cast::<B>() };
-	/// 
-	/// let b = mutator_b.get();
+	/// let a: HeapMutator<A> = memory.alloc(a);
+	/// let b: HeapMutator<B> = unsafe { a.cast::<B>() };
 	/// 
 	/// // Both of the structs have the size of 5 bytes:
 	/// //     - bool (1 byte)
