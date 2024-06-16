@@ -1,3 +1,5 @@
+use halloc_macros::impl_alloc;
+
 mod heap;
 mod memory;
 
@@ -10,18 +12,12 @@ pub const DEFAULT_HEAP_INIT_SIZE: usize = 1024;
 /// Represents any value that can be allocated onto the [`Heap`]
 pub trait Allocatable: Sized + 'static {}
 
-// TODO: Convert to a proc-macro to allow better expression of the types that can implement `Allocatable`
-macro_rules! impl_alloc {
-	($trait:ty => [$($type:ty),*]) => {
-		$( impl_alloc!($trait => $type); )*
-	};
-
-	($trait:ty => $type:ty) => {
-		impl $trait for $type {}
-	};
-}
-
-impl_alloc!(Allocatable => [i8, i16, i32, i64, i128]);
-impl_alloc!(Allocatable => [u8, u16, u32, u64, u128]);
-impl_alloc!(Allocatable => [f32, f64]);
-impl_alloc!(Allocatable => [bool, String]);
+impl_alloc!(Allocatable for {i8, i16, i32, i64, i128});
+impl_alloc!(Allocatable for {u8, u16, u32, u64, u128});
+impl_alloc!(Allocatable for {f32, f64});
+impl_alloc!(Allocatable for {bool, String});
+impl_alloc!(Allocatable for Vec<T> where T: Allocatable);
+impl_alloc!(Allocatable for std::collections::HashMap<U, T> where
+	U: std::hash::Hash + 'static,
+	T: Allocatable
+);

@@ -1,11 +1,13 @@
 [package]
 name = "halloc"
-version = "0.7.5"
+version = "0.7.6"
 authors = ["фыв"]
 edition = "2021"
 description = "A custom heap allocator made for use in personal projects"
 readme = "README.md"
+repository = "https://github.com/im-fiv/halloc"
 keywords = ["heap", "allocator", "custom-allocator", "memory", "memory-management"]
 publish = false
 
 [dependencies]
+halloc-macros = { path = "halloc-macros" }
