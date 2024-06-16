@@ -1,4 +1,5 @@
 # halloc
+![Build Status](https://github.com/im-fiv/halloc/actions/workflows/rust.yml/badge.svg)
 
 `halloc` is a custom heap allocation manager built in Rust, mainly designed for use in my personal projects. It provides a *flexible and efficient*\* way to manage memory allocation within Rust applications.
 
