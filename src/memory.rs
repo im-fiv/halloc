@@ -1,12 +1,12 @@
-use std::sync::{Mutex, MutexGuard};
 use std::alloc::Layout;
 use std::ptr::write;
+use std::sync::{Mutex, MutexGuard};
 
-use crate::{DEFAULT_HEAP_INIT_SIZE, Allocatable, Heap, HeapMutator};
+use crate::{Allocatable, Heap, HeapMutator, DEFAULT_HEAP_INIT_SIZE};
 
 #[derive(Debug)]
 /// A struct containing a [`Mutex`] of the inner [`Heap`] that is used for direct value allocation.
-/// 
+///
 /// See methods on [`Memory`] for documentation.
 pub struct Memory {
 	// Heap that the current [`Memory`] owns
@@ -15,10 +15,8 @@ pub struct Memory {
 
 impl Memory {
 	/// Initializes [`Memory`] with the default initialization size.
-	pub fn new() -> Self {
-		Self::with_size(DEFAULT_HEAP_INIT_SIZE)
-	}
-	
+	pub fn new() -> Self { Self::with_size(DEFAULT_HEAP_INIT_SIZE) }
+
 	/// Initializes [`Memory`] with the provided initialization size.
 	pub fn with_size(initial_size: usize) -> Self {
 		Self {
@@ -27,21 +25,19 @@ impl Memory {
 	}
 
 	/// Acquires the current [`Heap`] lock.
-	fn get_heap(&self) -> MutexGuard<Heap> {
-		self.heap.lock().expect("Heap lock failed")
-	}
-	
+	fn get_heap(&self) -> MutexGuard<Heap> { self.heap.lock().expect("Heap lock failed") }
+
 	/// Allocates memory for the provided value and returns a [`HeapMutator`] for that address.
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let mut mutator = memory.alloc(true);
-	/// 
+	///
 	/// assert_eq!(*mutator, true); // `HeapMutator` implements `Deref` which returns a refernce to the underlying data
-	/// 
+	///
 	/// mutator.write(false);
 	/// assert_eq!(*mutator, false);
 	/// ```
@@ -51,7 +47,7 @@ impl Memory {
 
 		// Acquiring a heap lock
 		let mut heap = self.get_heap();
-		
+
 		// Allocating a pointer
 		let ptr = heap.alloc_zeroed(layout).cast::<T>();
 
@@ -66,89 +62,79 @@ impl Memory {
 
 	/// Deallocates the provided [`HeapMutator`] and consuming it,
 	/// though the use of [`HeapMutator::dealloc`] is preferred over [`Memory::dealloc`].
-	/// 
+	///
 	/// It is important to note that [`HeapMutator`] implements [`Drop`], so the underlying data
 	/// will be dropped along with the mutator when it goes out of scope.
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let mutator = memory.alloc(true);
-	/// 
+	///
 	/// assert_eq!(memory.bytes(), vec![1]);
-	/// 
+	///
 	/// memory.dealloc(mutator);
 	/// assert_eq!(memory.bytes(), vec![]); // Value has been deallocated
 	/// ```
-	pub fn dealloc<T: Allocatable>(&self, mutator: HeapMutator<T>) {
-		mutator.dealloc();
-	}
+	pub fn dealloc<T: Allocatable>(&self, mutator: HeapMutator<T>) { mutator.dealloc(); }
 
 	/// Gets all of the bytes of the underlying heap.
-	/// 
+	///
 	/// Note that if you only need the count of contained bytes, you should use [`size`](Memory::size) instead.
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let _mutator = memory.alloc(42);
-	/// 
+	///
 	/// let bytes = memory.bytes();
 	/// assert!(
 	///     bytes == vec![42, 0, 0, 0] ||
 	///     bytes == vec![0, 0, 0, 42]
 	/// );
 	/// ```
-	pub fn bytes(&self) -> Vec<u8> {
-		self.get_heap().bytes()
-	}
+	pub fn bytes(&self) -> Vec<u8> { self.get_heap().bytes() }
 
 	/// Gets the byte count of the underlying heap.
-	/// 
+	///
 	/// Not to be confused with [`count`](Memory::count)
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(1); // Create memory with enough space for 1 pointer
 	/// let _mutator = memory.alloc(42);
-	/// 
+	///
 	/// assert_eq!(memory.size(), 4);
 	/// assert_eq!(memory.count(), 1);
 	/// ```
-	pub fn size(&self) -> usize {
-		self.get_heap().size()
-	}
+	pub fn size(&self) -> usize { self.get_heap().size() }
 
 	/// Gets the pointer count of the underlying heap.
-	/// 
+	///
 	/// Not to be confused with [`size`](Memory::size)
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::Memory;
 	/// let memory = Memory::with_size(3); // Create memory with enough space for 3 pointers
-	/// 
+	///
 	/// let _m1 = memory.alloc(1);
 	/// let _m2 = memory.alloc(2);
 	/// let _m3 = memory.alloc(3);
-	/// 
+	///
 	/// assert_eq!(memory.count(), 3);
 	/// assert_eq!(memory.size(), 12); // 4 bytes for each `i32`
 	/// ```
-	pub fn count(&self) -> usize {
-		self.get_heap().count()
-	}
+	pub fn count(&self) -> usize { self.get_heap().count() }
 }
 
 impl Default for Memory {
-	fn default() -> Self {
-		Self::new()
-	}
+	fn default() -> Self { Self::new() }
 }
