@@ -236,7 +236,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// Instantiates a new mutator without checking the pointer for validity.
 	///
 	/// # Safety
-	/// 
+	///
 	/// This function is **only** safe if the caller first makes sure that the pointer is valid (non-null, writeable, correct alignment and size, etc.)
 	pub unsafe fn new_unchecked(ptr: NonNull<T>, heap: &'heap Mutex<Heap>) -> Self {
 		Self {
@@ -315,7 +315,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// ```
 	///
 	/// # Safety
-	/// 
+	///
 	/// This type of casting is generally safe when casting between types of identical structure. Otherwise, it is highly discouraged.
 	pub unsafe fn cast<U: Allocatable>(self) -> HeapMutator<'heap, U> {
 		let mut heap = self.heap.lock().expect("Heap lock failed");
@@ -365,7 +365,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// - the validity invariants of `U` are not checked
 	///
 	/// # Safety
-	/// 
+	///
 	/// There are no safety guarantees provided by this function.
 	pub unsafe fn cast_unchecked<U: Allocatable>(mut self) -> HeapMutator<'heap, U> {
 		// This should be used to indicate if the memory for that address was already deallocated,
@@ -436,27 +436,27 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	pub fn dealloc(mut self) -> bool { self.dealloc_internal() }
 
 	/// Promotes the mutator to a `'static` lifetime, decoupling it from the original memory context.
-	/// 
+	///
 	/// # Safety
-	/// 
+	///
 	/// - Once promoted, it is no longer guaranteed that the memory will be deallocated.
 	/// - The caller must ensure that the memory referenced by the mutator remains valid for
 	/// the entire duration of the program to avoid undefined behavior.
-	/// 
+	///
 	/// # Undefined behavior
-	/// 
+	///
 	/// If the memory referenced by the promoted mutator is deallocated or becomes invalid before the program terminates,
 	/// any use of the mutator will result in undefined behavior.
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::{Memory, HeapMutator};
 	/// let memory = Memory::new();
-	/// 
+	///
 	/// let m = unsafe { memory.alloc(5).promote() };
 	/// drop(memory);
-	/// 
+	///
 	/// assert_eq!(*m, 5);
 	/// ```
 	pub unsafe fn promote(mut self) -> HeapMutator<'static, T> {
