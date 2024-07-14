@@ -435,6 +435,43 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// - the mutator has already been marked as dropped
 	pub fn dealloc(mut self) -> bool { self.dealloc_internal() }
 
+	/// Promotes the mutator to a `'static` lifetime, decoupling it from the original memory context.
+	/// 
+	/// # Safety
+	/// 
+	/// - Once promoted, it is no longer guaranteed that the memory will be deallocated.
+	/// - The caller must ensure that the memory referenced by the mutator remains valid for
+	/// the entire duration of the program to avoid undefined behavior.
+	/// 
+	/// # Undefined behavior
+	/// 
+	/// If the memory referenced by the promoted mutator is deallocated or becomes invalid before the program terminates,
+	/// any use of the mutator will result in undefined behavior.
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::{Memory, HeapMutator};
+	/// let memory = Memory::new();
+	/// 
+	/// let m = unsafe { memory.alloc(5).promote() };
+	/// drop(memory);
+	/// 
+	/// assert_eq!(*m, 5);
+	/// ```
+	pub unsafe fn promote(mut self) -> HeapMutator<'static, T> {
+		self.deallocated = true;
+
+		// SAFETY: We only transmute the lifetime
+		let heap_static = unsafe { std::mem::transmute::<_, &'static Mutex<Heap>>(self.heap) };
+
+		HeapMutator {
+			ptr: Arc::clone(&self.ptr),
+			heap: heap_static,
+			deallocated: false
+		}
+	}
+
 	/// Deallocates the mutator along with the contained value but **does not** consume the mutator.
 	///
 	/// It is only to be used internally, when it is guaranteed that the mutator will be dropped after that.
