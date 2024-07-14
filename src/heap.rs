@@ -236,6 +236,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// Instantiates a new mutator without checking the pointer for validity.
 	///
 	/// # Safety
+	/// 
 	/// This function is **only** safe if the caller first makes sure that the pointer is valid (non-null, writeable, correct alignment and size, etc.)
 	pub unsafe fn new_unchecked(ptr: NonNull<T>, heap: &'heap Mutex<Heap>) -> Self {
 		Self {
@@ -314,6 +315,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// ```
 	///
 	/// # Safety
+	/// 
 	/// This type of casting is generally safe when casting between types of identical structure. Otherwise, it is highly discouraged.
 	pub unsafe fn cast<U: Allocatable>(self) -> HeapMutator<'heap, U> {
 		let mut heap = self.heap.lock().expect("Heap lock failed");
@@ -363,6 +365,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// - the validity invariants of `U` are not checked
 	///
 	/// # Safety
+	/// 
 	/// There are no safety guarantees provided by this function.
 	pub unsafe fn cast_unchecked<U: Allocatable>(mut self) -> HeapMutator<'heap, U> {
 		// This should be used to indicate if the memory for that address was already deallocated,
