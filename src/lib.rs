@@ -16,8 +16,12 @@ impl_alloc!(Allocatable for {i8, i16, i32, i64, i128});
 impl_alloc!(Allocatable for {u8, u16, u32, u64, u128});
 impl_alloc!(Allocatable for {f32, f64});
 impl_alloc!(Allocatable for {bool, String});
-impl_alloc!(Allocatable for Vec<T> where T: Allocatable);
-impl_alloc!(Allocatable for std::collections::HashMap<U, T> where
-	U: std::hash::Hash + 'static,
-	T: Allocatable
+impl_alloc!(Allocatable for Vec<T>
+	where
+		T: Allocatable
+);
+impl_alloc!(Allocatable for std::collections::HashMap<U, T>
+	where
+		U: std::hash::Hash + 'static,
+		T: Allocatable
 );
