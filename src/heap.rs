@@ -441,7 +441,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	///
 	/// - Once promoted, it is no longer guaranteed that the memory will be deallocated.
 	/// - The caller must ensure that the memory referenced by the mutator remains valid for
-	/// the entire duration of the program to avoid undefined behavior.
+	///   the entire duration of the program to avoid undefined behavior.
 	///
 	/// # Undefined behavior
 	///
