@@ -1,9 +1,7 @@
 extern crate proc_macro as pm;
 
 use quote::quote;
-
-use syn::{Ident, Type, WhereClause, Token, braced, parse_macro_input};
-use syn::token;
+use syn::{braced, parse_macro_input, token, Ident, Token, Type, WhereClause};
 
 #[derive(Debug)]
 struct ImplAllocInput {
@@ -67,7 +65,7 @@ pub fn impl_alloc(input: pm::TokenStream) -> pm::TokenStream {
 	} = parse_macro_input!(input as ImplAllocInput);
 
 	let clause_predicates = where_clause.map(|w| w.predicates);
-	
+
 	let mut impls = vec![];
 
 	for ty in types {
@@ -78,5 +76,6 @@ pub fn impl_alloc(input: pm::TokenStream) -> pm::TokenStream {
 
 	quote! {
 		#( #impls )*
-	}.into()
+	}
+	.into()
 }
