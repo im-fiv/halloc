@@ -463,9 +463,8 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		self.deallocated = true;
 
 		// SAFETY: We only transmute the lifetime
-		let heap_static = unsafe {
-			std::mem::transmute::<&'heap Mutex<Heap>, &'static Mutex<Heap>>(self.heap)
-		};
+		let heap_static =
+			unsafe { std::mem::transmute::<&'heap Mutex<Heap>, &'static Mutex<Heap>>(self.heap) };
 
 		HeapMutator {
 			ptr: Arc::clone(&self.ptr),
