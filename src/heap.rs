@@ -264,6 +264,41 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 		self.get().to_owned()
 	}
 
+	/// Takes the value that the mutator is pointing to, leaving a default one in its place.
+	///
+	/// This requires the implementation of [`Default`] for the type of the value that the mutator is holding.
+	/// 
+	/// # Examples
+	/// 
+	/// ```
+	/// # use halloc::{Allocatable, Memory, HeapMutator};
+	/// struct Counter {
+	///     value: i32
+	/// }
+	/// 
+	/// impl Default for Counter {
+	///	    fn default() -> Self {
+	///         Self { value: 0 }
+	///     }
+	/// }
+	/// 
+	/// impl Allocatable for Counter {}
+	/// 
+	/// let memory = Memory::new();
+	/// let mut mutator: HeapMutator<Counter> = memory.alloc(Counter { value: 5 });
+	/// 
+	/// let counter = mutator.take();
+	/// 
+	/// assert_eq!(mutator.value, 0);
+	/// assert_eq!(counter.value, 5);
+	/// ```
+	pub fn take(&self) -> T
+	where
+		T: Default {
+		let default = T::default();
+		unsafe { std::ptr::replace(self.ptr.as_ptr(), default) }
+	}
+
 	/// Writes the target value to where the mutator is pointing to.
 	pub fn write(&mut self, value: T) { unsafe { std::ptr::write(self.ptr.as_ptr(), value) } }
 
