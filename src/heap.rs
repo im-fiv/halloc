@@ -277,7 +277,7 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// }
 	///
 	/// impl Default for Counter {
-	///	    fn default() -> Self {
+	///     fn default() -> Self {
 	///         Self { value: 0 }
 	///     }
 	/// }
