@@ -267,28 +267,28 @@ impl<'heap, T: Allocatable> HeapMutator<'heap, T> {
 	/// Takes the value that the mutator is pointing to, leaving a default one in its place.
 	///
 	/// This requires the implementation of [`Default`] for the type of the value that the mutator is holding.
-	/// 
+	///
 	/// # Examples
-	/// 
+	///
 	/// ```
 	/// # use halloc::{Allocatable, Memory, HeapMutator};
 	/// struct Counter {
 	///     value: i32
 	/// }
-	/// 
+	///
 	/// impl Default for Counter {
 	///	    fn default() -> Self {
 	///         Self { value: 0 }
 	///     }
 	/// }
-	/// 
+	///
 	/// impl Allocatable for Counter {}
-	/// 
+	///
 	/// let memory = Memory::new();
 	/// let mut mutator: HeapMutator<Counter> = memory.alloc(Counter { value: 5 });
-	/// 
+	///
 	/// let counter = mutator.take();
-	/// 
+	///
 	/// assert_eq!(mutator.value, 0);
 	/// assert_eq!(counter.value, 5);
 	/// ```
